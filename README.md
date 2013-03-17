@@ -22,6 +22,9 @@ My first feedback on sending the code to a developer in Sweden is, that it was v
 
 So I guess: see if you can use it, and whether there is somebody wanna improve things in the code, to get it working for even more people. Any feedback is welcome.
 
+Dependencies
+============
+See the .classpath file
 
 Contributers
 ============
