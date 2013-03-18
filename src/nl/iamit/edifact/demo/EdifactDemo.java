@@ -27,6 +27,7 @@ import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -54,6 +55,7 @@ import nl.iamit.mail.IAmMailMessageSettings;
 import nl.iamit.mail.IAmMailSendServerSettings;
 import nl.iamit.mail.IAmMailStore;
 import nl.iamit.util.FileFunctions;
+import nl.iamit.util.StringStandardRegex;
 import nl.iamit.util.exceptions.DuplicateException;
 import nl.iamit.util.exceptions.InvalidArgumentException;
 import nl.iamit.util.exceptions.InvalidProcedureCallException;
@@ -480,26 +482,54 @@ public class EdifactDemo extends JFrame {
 		IAmFileWriter.writeToFile(fileName, content.toString());
 		return true;
 	}
+	
+	private void testMailIn(){
+		IAmMailFetchServerSettings inServer= demoPanel.settingsPanel.getInServer();
+		if(IAmMail.testFetchServerConnection(inServer)){
+			showInfo("Test incomming mail settings","Succes, Settings OK!");
+		}else{
+			showError("Test incomming mail settings","Failed: Settings not OK! (see logs)");
+		}
+	}
 
+	private void testMailOut(){
+		IAmMailSendServerSettings sendServerSettings = demoPanel.settingsPanel
+				.getOutServer();
+		if(IAmMail.testSmtpServerConnection(sendServerSettings, true)){
+			showInfo("Test outgoing mail settings","Succes, Settings OK!");
+		}else{
+			showError("Test outgoing mail settings","Failed: Settings not OK! (see logs)");
+		}
+	}
+
+	
 	private class DemoButtonPanel extends JPanel implements ActionListener {
 		private JButton butSend;
 		private JButton butReceive;
 		private JButton butCancel;
+		private JButton butTestMailIn;
+		private JButton butTestMailOut;
+		
 		
 		public DemoButtonPanel() {
-			// setLayout(new BorderLayout());
 			this.setBackground(bgColor);
 
 			butSend = new JButton("Send");
 			butReceive = new JButton("Receive");
 			butCancel=new JButton("Cancel");
+			butTestMailIn=new JButton("Test in");
+			butTestMailOut=new JButton("Test out");
 
 			butSend.addActionListener(this);
 			butReceive.addActionListener(this);
 			butCancel.addActionListener(this);
-
-			this.add(butSend);// ,BorderLayout.CENTER);
-			this.add(butReceive);// ,BorderLayout.SOUTH);
+			butTestMailIn.addActionListener(this);
+			butTestMailOut.addActionListener(this);
+			
+			this.add(butTestMailOut);
+			this.add(butSend);
+			this.add(butTestMailIn);
+			this.add(butReceive);
 			this.add(butCancel);
 		}
 
@@ -512,6 +542,10 @@ public class EdifactDemo extends JFrame {
 					sendEdifactMessages();
 				} else if (eventSource.equals(butReceive)) {
 					receiveEdifactMessages();
+				} else if(eventSource.equals(butTestMailIn)){
+					testMailIn();
+				} else if(eventSource.equals(butTestMailOut)){
+					testMailOut();
 				}
 			} catch (AccessControlException e) {
 				log.severe(e.getMessage());
@@ -574,6 +608,7 @@ public class EdifactDemo extends JFrame {
 
 		private JTextField tfInServer = new JTextField("");
 		private JTextField tfInPort = new JTextField("");
+		private JTextField tfInboxName = new JTextField("");
 		private JTextField tfOutServer = new JTextField("");
 		private JTextField tfOutPort = new JTextField("");
 		private JTextField tfEmailAddress = new JTextField("");
@@ -582,6 +617,7 @@ public class EdifactDemo extends JFrame {
 		private JCheckBox chUseTLS=new JCheckBox("Use TLS");
 		private JCheckBox chUseSSL=new JCheckBox("Use SSL");
 		private JCheckBox chUselogin=new JCheckBox("Use Login");
+		private JComboBox cbFetchProtocol =new JComboBox();
 
 		public DemoSettingsPanel() {
 
@@ -636,6 +672,18 @@ public class EdifactDemo extends JFrame {
 			addComponents(this, lblPortIn, gridBag, c, col, row, 1, 1);
 			col++;
 			addComponents(this, tfInPort, gridBag, c, col, row, 1, 1);
+			row++;
+			col=0;
+			JLabel lblInbox = new JLabel("Inbox name:");
+			addComponents(this, lblInbox, gridBag, c, col, row, 1, 1);
+			col++;
+			addComponents(this,tfInboxName, gridBag, c, col, row, 1, 1);
+			row++;
+			col=0;
+			JLabel lblProtocolIn = new JLabel("Protocol:");
+			addComponents(this, lblProtocolIn, gridBag, c, col, row, 1, 1);
+			col++;
+			addComponents(this,cbFetchProtocol, gridBag, c, col, row, 1, 1);
 
 			row++;
 			col = 0;
@@ -661,6 +709,14 @@ public class EdifactDemo extends JFrame {
 			tfInPort.setText("" + DEFAULT_IMAP_PORT);
 			tfOutServer.setText(DEFAULT_SMTP_SERVER);
 			tfOutPort.setText("" + DEFAULT_SMTP_PORT);
+			tfInboxName.setText("INBOX");
+			
+			cbFetchProtocol.addItem("POP3 ("+IAmMailFetchServerSettings.FETCH_PROTOCOL_POP3+")");
+			cbFetchProtocol.addItem("POP3s ("+IAmMailFetchServerSettings.FETCH_PROTOCOL_POP3S+")");
+			cbFetchProtocol.addItem("IMAP ("+IAmMailFetchServerSettings.FETCH_PROTOCOL_IMAP+")");
+			cbFetchProtocol.addItem("IMAPS ("+IAmMailFetchServerSettings.FETCH_PROTOCOL_IMAPS+")");
+			
+			cbFetchProtocol.setSelectedItem("IMAPS ("+IAmMailFetchServerSettings.FETCH_PROTOCOL_IMAPS+")");
 			
 			this.chUselogin.setSelected(true);
 			this.chUseSSL.setSelected(false);
@@ -668,9 +724,15 @@ public class EdifactDemo extends JFrame {
 		}
 
 		public IAmMailFetchServerSettings getInServer() {
-			// for now: hardcode IMAP
-			int fetchProtocol = IAmMailFetchServerSettings.FETCH_PROTOCOL_IMAP;
-			String inboxName = "INBOX";
+			String selectedFetchProtocol=cbFetchProtocol.getSelectedItem().toString();
+			int fetchProtocol =IAmMailFetchServerSettings.FETCH_PROTOCOL_IMAPS;
+			try{
+				fetchProtocol=Integer.parseInt(StringStandardRegex.getNameIdSplitted(selectedFetchProtocol).getSecond());
+			}catch(Exception e){
+				log.severe(e.getMessage());
+				e.printStackTrace();
+			}
+			String inboxName = tfInboxName.getText();
 			// from settings panel:
 			String fetchServerName = this.tfInServer.getText();
 			int fetchPort = Integer.parseInt(this.tfInPort.getText());
@@ -772,6 +834,17 @@ public class EdifactDemo extends JFrame {
 	public void showError(String title, String message) {
 		JOptionPane.showMessageDialog(this, message, title,
 				JOptionPane.ERROR_MESSAGE);
+	}
+	
+	/**
+	 * Show an error message, baseframe as parent
+	 * 
+	 * @param title
+	 * @param message
+	 */
+	public void showInfo(String title, String message) {
+		JOptionPane.showMessageDialog(this, message, title,
+				JOptionPane.INFORMATION_MESSAGE);
 	}
 
 	private class DemoPanel extends JPanel {

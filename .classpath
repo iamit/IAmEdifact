@@ -6,6 +6,7 @@
 	<classpathentry kind="lib" path="lib/junit.sourceforge.net/junit-4.5.jar"/>
 	<classpathentry kind="lib" path="lib/hc.apache.org/httpcore-4.0.jar"/>
 	<classpathentry kind="lib" path="lib/hc.apache.org/httpcore-nio-4.0.jar"/>
+	<classpathentry kind="lib" path="lib/jakarta-regexp.apache.org/jakarta-regexp-1.5.jar"/>
 	<classpathentry kind="lib" path="lib/javamail.sun.com/javamail-1.4.5/mail.jar"/>
 	<classpathentry kind="lib" path="lib/javamail.sun.com/javamail-1.4.3/activation-1.1.1.jar"/>
 	<classpathentry kind="lib" path="lib/joda-time.sourceforge.net/joda-time-1.5.2.jar"/>
